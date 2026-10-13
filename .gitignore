@@ -1,0 +1,38 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Database (each person has their own local DB)
+database/project_data.db
+
+# Saved project images (local only, can be large)
+saved_projects/
+
+# OpenCV output images
+output/
+
+# Temporary files
+*.tmp
+*.log
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Zip files (don't push these)
+*.zip
