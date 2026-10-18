@@ -22,8 +22,6 @@ from calculations import (
     DEFAULT_RUNOFF_COEFFICIENT,
     DEFAULT_CURING_DAYS,
     SQFT_PER_SQM,
-    DEFAULT_CONCRETE_M3_PER_SQM_FLOOR_AREA,
-    DEFAULT_PLASTER_M3_PER_SQM_FLOOR_AREA,
 )
 
 # Database imports
@@ -362,7 +360,7 @@ if app_mode == "Site Analysis (New Project)":
         del st.session_state["view_project_id"]
 
     # ── INPUT SECTION ──
-    col1, col2, col3 = st.columns(3, gap="medium")
+    col1, col2 = st.columns(2, gap="medium")
 
     with col1:
         st.markdown("""
@@ -405,20 +403,6 @@ if app_mode == "Site Analysis (New Project)":
         st.markdown("</div>", unsafe_allow_html=True)
 
     
-        st.markdown("""
-        <div class="glass-card">
-            <div class="card-title">⚙️ Estimate Assumptions</div>
-            <div class="card-desc">Construction quantities and fixed defaults</div>
-        """, unsafe_allow_html=True)
-        st.caption(f"Runoff coefficient: {DEFAULT_RUNOFF_COEFFICIENT:.2f} (default)")
-        st.caption(f"Curing duration: {DEFAULT_CURING_DAYS:.0f} days (default)")
-        st.caption(
-            "Volume assumptions per sq ft of total floor area: "
-            f"concrete {DEFAULT_CONCRETE_M3_PER_SQM_FLOOR_AREA / SQFT_PER_SQM:.4f} m³, "
-            f"plaster {DEFAULT_PLASTER_M3_PER_SQM_FLOOR_AREA / SQFT_PER_SQM:.4f} m³. "
-            "The detected footprint is assumed to be the same on each floor."
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
     _, center_col, _ = st.columns([1, 1.8, 1])
