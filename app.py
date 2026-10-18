@@ -14,10 +14,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import streamlit as st
 from PIL import Image
 
-# Backend imports (Preserved unchanged)
+# Backend imports
 from area_detection.building_detection import detect_building_area_percentage
 from api import get_rainfall_for_location
-from calculations import calculate_project_result
+from calculations import (
+    calculate_project_result_from_sqft,
+    DEFAULT_RUNOFF_COEFFICIENT,
+    DEFAULT_CURING_DAYS,
+    SQFT_PER_SQM,
+    DEFAULT_CONCRETE_M3_PER_SQM_FLOOR_AREA,
+    DEFAULT_PLASTER_M3_PER_SQM_FLOOR_AREA,
+)
 
 # Database imports
 from database import (
@@ -377,22 +384,40 @@ if app_mode == "Site Analysis (New Project)":
         st.markdown("""
         <div class="glass-card">
             <div class="card-title">📍 Site Information</div>
-            <div class="card-desc">Location for historical rainfall + physical site area</div>
+            <div class="card-desc">Location for rainfall lookup + physical site area</div>
         """, unsafe_allow_html=True)
         address = st.text_input("Site Location / City", placeholder="e.g. Powai, Mumbai", key="site_address")
-        site_area = st.number_input("Total Site Area (m²)", min_value=1.0, value=10000.0, step=100.0, key="site_area")
-        runoff_coeff = st.number_input("Runoff Coefficient", min_value=0.05, max_value=1.0, value=0.80, step=0.05, key="runoff_coeff")
+        site_area_sqft = st.number_input(
+            "Total Site Area (sq ft)",
+            min_value=1.0,
+            value=10000.0 * SQFT_PER_SQM,
+            step=1000.0,
+            key="site_area_sqft",
+            help="Enter the physical site area represented by the full uploaded image.",
+        )
+        number_of_floors = st.number_input(
+            "Number of Floors",
+            min_value=1,
+            value=1,
+            step=1,
+            key="number_of_floors",
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col3:
         st.markdown("""
         <div class="glass-card">
-            <div class="card-title">⚙️ Construction Parameters</div>
-            <div class="card-desc">Volumes & curing duration for water demand</div>
+            <div class="card-title">⚙️ Estimate Assumptions</div>
+            <div class="card-desc">Construction quantities and fixed defaults</div>
         """, unsafe_allow_html=True)
-        concrete_vol = st.number_input("Concrete Volume (m³)", min_value=0.0, value=100.0, step=10.0, key="concrete_vol")
-        plaster_vol = st.number_input("Plaster Volume (m³)", min_value=0.0, value=50.0, step=5.0, key="plaster_vol")
-        curing_days = st.number_input("Curing Duration (Days)", min_value=0, value=14, step=1, key="curing_days")
+        st.caption(f"Runoff coefficient: {DEFAULT_RUNOFF_COEFFICIENT:.2f} (default)")
+        st.caption(f"Curing duration: {DEFAULT_CURING_DAYS:.0f} days (default)")
+        st.caption(
+            "Volume assumptions per sq ft of total floor area: "
+            f"concrete {DEFAULT_CONCRETE_M3_PER_SQM_FLOOR_AREA / SQFT_PER_SQM:.4f} m³, "
+            f"plaster {DEFAULT_PLASTER_M3_PER_SQM_FLOOR_AREA / SQFT_PER_SQM:.4f} m³. "
+            "The detected footprint is assumed to be the same on each floor."
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
@@ -456,14 +481,11 @@ if app_mode == "Site Analysis (New Project)":
 
         # 4. Calculations
         try:
-            result = calculate_project_result(
-                image_area_m2=site_area,
+            result = calculate_project_result_from_sqft(
+                site_area_sqft=site_area_sqft,
                 rooftop_percentage=rooftop_pct,
                 rainfall_mm=rainfall_mm,
-                runoff_coefficient=runoff_coeff,
-                concrete_volume_m3=concrete_vol,
-                plaster_volume_m3=plaster_vol,
-                curing_days=curing_days,
+                number_of_floors=number_of_floors,
             )
         except Exception as e:
             status_placeholder.empty()
@@ -477,16 +499,16 @@ if app_mode == "Site Analysis (New Project)":
         st.session_state["results"] = {
             "result": result,
             "rainfall_mm": rainfall_mm,
-            "site_area": site_area,
-            "runoff_coeff": runoff_coeff,
+            "site_area_sqft": site_area_sqft,
+            "runoff_coeff": result["runoff_coefficient"],
             "location": address,
             "temp_image_path": temp_image_path,
             "original_filename": uploaded_file.name,
             "inputs": {
-                "runoff_coefficient": runoff_coeff,
-                "concrete_volume_m3": concrete_vol,
-                "plaster_volume_m3": plaster_vol,
-                "curing_duration_days": curing_days,
+                "runoff_coefficient": result["runoff_coefficient"],
+                "concrete_volume_m3": result["concrete_volume_m3"],
+                "plaster_volume_m3": result["plaster_volume_m3"],
+                "curing_duration_days": DEFAULT_CURING_DAYS,
             }
         }
 
@@ -530,8 +552,8 @@ if app_mode == "Site Analysis (New Project)":
             st.markdown(f"""
             <div class="stat-box">
                 <div class="stat-icon">🏠</div>
-                <div class="stat-val">{res['rooftop_area_m2']:,.1f} m²</div>
-                <div class="stat-lbl">Catchment Rooftop Area</div>
+                <div class="stat-val">{res['building_footprint_sqft']:,.0f} sq ft</div>
+                <div class="stat-lbl">Estimated Building Footprint</div>
                 <div class="stat-sub">Effective runoff area</div>
             </div>
             """, unsafe_allow_html=True)
@@ -552,6 +574,13 @@ if app_mode == "Site Analysis (New Project)":
             <h2 class="section-name">Construction Water Demand Breakdown</h2>
         </div>
         """, unsafe_allow_html=True)
+
+        st.caption(
+            f"Estimated total floor area: {res['gross_floor_area_sqft']:,.0f} sq ft "
+            f"({res['number_of_floors']:.0f} floor(s)). "
+            f"Estimated material volumes: {res['concrete_volume_m3']:,.1f} m³ concrete, "
+            f"{res['plaster_volume_m3']:,.1f} m³ plaster. These are planning estimates."
+        )
 
         d1, d2, d3, d4 = st.columns(4, gap="medium")
         with d1:
@@ -694,7 +723,7 @@ if app_mode == "Site Analysis (New Project)":
                     new_prj_id = save_project(
                         project_name=project_name_input.strip() or f"Project {data['location']}",
                         location=data["location"],
-                        site_area_m2=data["site_area"],
+                        site_area_m2=data["site_area_sqft"] / SQFT_PER_SQM,
                         inputs=data["inputs"],
                         results=res,
                         source_image_path=data.get("temp_image_path"),
@@ -758,7 +787,7 @@ elif app_mode == "Project History":
                 "Project ID": p["project_id"],
                 "Project Name": p["project_name"],
                 "Location": p["location"],
-                "Site Area": f"{p['site_area_m2']:,.0f} m²",
+                "Site Area": f"{p['site_area_m2'] * SQFT_PER_SQM:,.0f} sq ft",
                 "Created At": p["created_at"],
                 "Status": p.get("status", "N/A"),
             })
@@ -842,7 +871,7 @@ elif app_mode == "Project History":
                     st.markdown(f"""
                     <div class="stat-box">
                         <div class="stat-icon">🌐</div>
-                        <div class="stat-val">{p_meta['site_area_m2']:,.0f} m²</div>
+                        <div class="stat-val">{p_meta['site_area_m2'] * SQFT_PER_SQM:,.0f} sq ft</div>
                         <div class="stat-lbl">Site Area</div>
                         <div class="stat-sub">Physical boundary</div>
                     </div>
@@ -851,7 +880,7 @@ elif app_mode == "Project History":
                     st.markdown(f"""
                     <div class="stat-box">
                         <div class="stat-icon">🏠</div>
-                        <div class="stat-val">{p_res.get('rooftop_area_m2', 0):,.1f} m²</div>
+                        <div class="stat-val">{p_res.get('rooftop_area_m2', 0) * SQFT_PER_SQM:,.0f} sq ft</div>
                         <div class="stat-lbl">Estimated Rooftop Area</div>
                         <div class="stat-sub">{p_res.get('rooftop_percentage', 0):.2f}% coverage</div>
                     </div>
@@ -870,13 +899,13 @@ elif app_mode == "Project History":
                 # Detailed construction inputs
                 in_c1, in_c2, in_c3, in_c4 = st.columns(4, gap="medium")
                 with in_c1:
-                    st.metric("Runoff Coefficient", f"{p_in.get('runoff_coefficient', 0.8):.2f}")
+                    st.metric("Runoff Coefficient", f"{p_in.get('runoff_coefficient', DEFAULT_RUNOFF_COEFFICIENT):.2f}")
                 with in_c2:
                     st.metric("Concrete Volume", f"{p_in.get('concrete_volume_m3', 0):,.0f} m³")
                 with in_c3:
                     st.metric("Plaster Volume", f"{p_in.get('plaster_volume_m3', 0):,.0f} m³")
                 with in_c4:
-                    st.metric("Curing Duration", f"{p_in.get('curing_duration_days', 0):.0f} days")
+                    st.metric("Curing Duration", f"{p_in.get('curing_duration_days', DEFAULT_CURING_DAYS):.0f} days")
 
                 st.markdown("---")
 

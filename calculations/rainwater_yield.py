@@ -16,7 +16,7 @@ from .validation import (
 )
 
 # Configurable standard engineering default for impermeable rooftops (e.g. concrete/metal/tile)
-DEFAULT_RUNOFF_COEFFICIENT = 0.80
+DEFAULT_RUNOFF_COEFFICIENT = 0.75
 
 
 def calculate_rainwater_yield(

@@ -20,12 +20,13 @@ from .validation import validate_non_negative
 DEFAULT_CONCRETE_WATER_L_PER_M3 = 180.0
 DEFAULT_PLASTER_WATER_L_PER_M3 = 160.0
 DEFAULT_CURING_WATER_L_PER_M3_PER_DAY = 20.0
+DEFAULT_CURING_DAYS = 13.0
 
 
 def calculate_water_demand(
     concrete_volume_m3: Union[int, float] = 0.0,
     plaster_volume_m3: Union[int, float] = 0.0,
-    curing_days: Union[int, float] = 0.0,
+    curing_days: Union[int, float] = DEFAULT_CURING_DAYS,
     concrete_water_requirement_l_per_m3: Union[int, float] = DEFAULT_CONCRETE_WATER_L_PER_M3,
     plaster_water_requirement_l_per_m3: Union[int, float] = DEFAULT_PLASTER_WATER_L_PER_M3,
     curing_water_requirement_l_per_m3_per_day: Union[int, float] = DEFAULT_CURING_WATER_L_PER_M3_PER_DAY,
