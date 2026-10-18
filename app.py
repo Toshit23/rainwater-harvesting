@@ -404,7 +404,7 @@ if app_mode == "Site Analysis (New Project)":
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col3:
+    
         st.markdown("""
         <div class="glass-card">
             <div class="card-title">⚙️ Estimate Assumptions</div>
